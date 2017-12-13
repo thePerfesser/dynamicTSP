@@ -1,6 +1,26 @@
-// #include "tsp.cpp"
-#include <stdio.h>
-#include <math.h>
+#include <iostream>
+#include <cstdlib>
+#include <cmath>
+#include <ctime>
+#include <iomanip>
+
+using namespace std;
+
+class TspPath {
+public:
+    int cost;   // cost ultimately includes the steps from the first and last node, as well as between all interanl nodes
+    int *path;  // note: the way I'm using this, only the "internal" vertices of a tour are put in the path array here
+    TspPath(int pathLength){
+        cost=0;
+        path = new int[pathLength];
+    }
+    // destructor
+    ~TspPath(){
+        delete path; // doing this properly so we don't leak the memory for all these path arrays
+    }
+
+};
+
 
 struct Subsol {
 	int cost, firstStep;
@@ -85,24 +105,31 @@ void fillRandomUndirectedEdgeCostMatrix(int** ec, int n, int lo, int hi) {
     }
 }
 
-int** createSolTable(int n) {
-    // we need a 1D array of pointers, one pointer for each row
-    struct Subsol** solTable = (struct Subsol **) calloc(n,sizeof(struct Subsol*)); // here, n is the number of rows
-    int i;
-    // now this loop will allocate the memory for each row
-    for (i=0;i<n;i++){
-        // solTable[i] will be the pointer to row i
-        solTable[i]=(int*)calloc(n,sizeof(int)); // here n is the number of columns
+void displayMatrix(int** mat, int nRows, int nCols, ostream& outs) {
+    int i,j;
+    for(i=0;i<nRows;i++){
+        for(j=0;j<nCols;j++){
+            outs << setw(8) << mat[i][j];
+        }
+        outs <<"\n";
     }
-    // ecMatrix is the base pointer to the whole structure representing the 2D matrix
-    //   it points to the 1D array of "pointers to rows"
-    // ecMatrix[x] picks out a row, it is a pointer row x
-    // ecMatrix[x][y] picks out a specific integer from the table: from column y of row x
-    return ecMatrix;
+ }
+
+struct Subsol** createSolTable(int n) {
+    struct Subsol** solTable = (struct Subsol **) calloc(n,sizeof(struct Subsol*));
+    int i;
+    for (i=0;i<n;i++){
+        solTable[i]=(struct Subsol*)calloc(n,sizeof(int)); 
+    }
+    return solTable;
 }
 
-
-
+void deleteSolTable(struct Subsol** s,int n){
+    for(int i=0;i<n;i++){
+        free(s[i]);
+    }
+    free(s);
+}
 
 
 //                         888    8888888b.                                           d8b            .d88      88b.   
@@ -197,7 +224,7 @@ TspPath *mctDynamic(int startNode, int endNode, int nTourNodes, int tourNodes[],
 //                  888                 Y8b d88P                                                                 
 //                  888                  "Y88P"                                                                  
 
-TspPath *tspDynamic(int nNodes, int homeNode, int**edgeCosts) {
+TspPath *tspDynamic(int nNodes, int homeNode, int** edgeCosts, struct Subsol** solTable) {
     TspPath *solution;
     int *tourNodes = new int[nNodes-1];
     for(int i=0;i<nNodes-1;i++){
@@ -207,12 +234,41 @@ TspPath *tspDynamic(int nNodes, int homeNode, int**edgeCosts) {
             tourNodes[i]=i+1;
        	}
    	}
-   	solution = tspBruteWorker(homeNode, homeNode, nNodes-1, tourNodes, edgeCosts);
+   	solution = mctDynamic(homeNode, homeNode, nNodes-1, tourNodes, edgeCosts, solTable);
    	delete tourNodes;
    	return solution;
 }
 
 
+
+
+
+
+//       888 d8b                   888                    .d8888b.           888   .d88      88b.   
+//       888 Y8P                   888                   d88P  Y88b          888  d88P"      "Y88b  
+//       888                       888                   Y88b.               888 d88P          Y88b 
+//   .d88888 888 .d8888b  88888b.  888  8888b.  888  888  "Y888b.    .d88b.  888 888            888 
+//  d88" 888 888 88K      888 "88b 888     "88b 888  888     "Y88b. d88""88b 888 888            888 
+//  888  888 888 "Y8888b. 888  888 888 .d888888 888  888       "888 888  888 888 Y88b          d88P 
+//  Y88b 888 888      X88 888 d88P 888 888  888 Y88b 888 Y88b  d88P Y88..88P 888  Y88b.      .d88P  
+//   "Y88888 888  88888P' 88888P"  888 "Y888888  "Y88888  "Y8888P"   "Y88P"  888   "Y88      88P"   
+//                        888                        888                                            
+//                        888                   Y8b d88P                                            
+//                        888                    "Y88P"                                             
+
+
+void displaySol(int nNodes, int homeNode, TspPath* solution, double elapsedTime) {
+    cout << "\n\nHome Node: " << homeNode << "\n";
+    cout << "Total Nodes, N = " << nNodes << "\n";
+
+    cout << "Tour: *" << homeNode << "* --> ";
+    for(int i=0; i<nNodes-1; i++ ){
+        cout << solution->path[i] << " --> ";
+    }
+    cout << "*" << homeNode << "*\n";
+    cout << "Total Cost: " << solution->cost << "\n";
+    cout << "Elapsed Time: " << elapsedTime;
+}
 
 
 
@@ -237,26 +293,32 @@ int main()
     srand(time(0));
     int nNodes = 10, lowCost=1, highCost=100, homeNode=0;
 
-    TspPath *bruteSolution;
+    TspPath *dynamicSolution;
 
-    int **edgeCostMatrix, **solTable;
+    int **edgeCostMatrix;
+    struct Subsol **solTable;
 
-    //while(1){ // infinite loop to check for memory leaks
-        edgeCostMatrix = createZeroSquareMatrix(nNodes);
-        fillRandomUndirectedEdgeCostMatrix(edgeCostMatrix,nNodes,lowCost,highCost);
-        displayMatix(edgeCostMatrix,nNodes,nNodes,cout);
+    // build/allocate//fill edge cost matrix
+    edgeCostMatrix = createZeroSquareMatrix(nNodes);
+    fillRandomUndirectedEdgeCostMatrix(edgeCostMatrix,nNodes,lowCost,highCost);
+    displayMatrix(edgeCostMatrix,nNodes,nNodes,cout);
 
-        // build solTable
-        solTable = createZeroSquareMatrix(nNodes); 
+    // build / allocate solTable
+    solTable = createSolTable(nNodes);
+    
+    // execute and time dynamic TSP solution
+    start = clock();
+    dynamicSolution = tspDynamic(nNodes,homeNode,edgeCostMatrix, solTable);
+    stop = clock();
+    displaySol(nNodes, homeNode, dynamicSolution, (stop-start)/(double)CLOCKS_PER_SEC);
 
-        start = clock();
-        bruteSolution = tspBrute(nNodes,homeNode,edgeCostMatrix);
-        stop = clock();
-        displaySolution(nNodes, homeNode, bruteSolution, (stop-start)/(double)CLOCKS_PER_SEC);
-
-        delete bruteSolution;
-        deleteMatrix(edgeCostMatrix,nNodes);
-    //}
+    // memory management
+    delete dynamicSolution;
+    deleteMatrix(edgeCostMatrix,nNodes);
+    deleteSolTable(solTable, nNodes);
+    
+    cout << endl;
+    cout << "Enter to quit...";
     cin.get();
     return 0;
 }
