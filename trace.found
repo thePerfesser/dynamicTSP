@@ -1,0 +1,55 @@
+Check: 3 { 4 } ......found
+
+    Solution for solTable[ 8 ][ 3 ] exists in table. 
+     - { 0  }
+
+solution->path = buildPathFromStartNode(
+				pathIndex, nTourNodes, solTable[8][3].firstStep, solTable);
+
+solution->path = buildPathFromStartNode(
+				8, 1, 4, solTable);
+
+
+buildPathFromStartNode(pathIndex = 8, nNodes = 1, startNode = 4, solTable) 
+	--> if nNodes == 1    **TRUE**
+	    --> int* solPath = [allocate]
+	    --> solPath[0] = 4
+	    --> RETURN solPath --> { 4 }
+
+
+------------------------------------
+====================================
+------------------------------------
+
+
+
+Check: 4 { 3 5 } ......found
+Calling buildPathFromStartNode( 20, 2, 5, solTable)
+---------------------------------entering build path .. startNode = 5
+---------------------------------entering build path .. startNode = 0
+build path returning with solPath = { 0 }    solTable[][].firstStep = 0
+
+    Solution for solTable[ 20 ][ 4 ] exists in table. 
+     - { 5 0  }
+
+
+==========================================
+
+******** pathIndex for { 1 2  } = 3
+
+Check: 3 { 1 2 } ......found
+Calling buildPathFromStartNode( 3, 2, 2, solTable)
+---------------------------------entering build path .. startNode = 2
+
+    Solution for solTable[ 3 ][ 3 ] exists in table. 
+     - { 2 0  }
+
+
+===========================
+
+Check: 2 { 3 5 } ......found
+Calling buildPathFromStartNode( 20, 2, 5, solTable)
+---------------------------------entering build path .. startNode = 5
+
+    Solution for solTable[ 20 ][ 2 ] exists in table. 
+     - { 3 0  }
